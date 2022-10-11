@@ -17,19 +17,31 @@
 
 #include "umalloc.h"
 
-#define UMEM_ALIGN      4
-#define UMEM_ALIGN_MASK 0x0003
+#define UBYTE_ALIGN      4
+#define UBYTE_ALIGN_MASK 0x0003
+
+static const uHeapStructSize = ( sizeof(uHeap_link_t) + ( UBYTE_ALIGN - 1 ) ) & ~( (size_t) UBYTE_ALIGN_MASK );
+
+
 
 uHeapId_t ucreate(void* addr, size_t size)
 {
     uHeapId_t   id = 0;
-    uint8_t*    aligned_addr = NULL;
-    uint32_t    base_addr = 0;
+    uint8_t*    aligned_heap = NULL;
+    uint32_t    uaddr = 0;
+    size_t      total_size = size;
 
-    if( ( UMEM_ALIGN_MASK & base_addr ) != 0 )
+    uaddr = ( uint32_t ) addr;
+
+    // A misaligned address was provided, fix it for access consistency.
+    if( ( UBYTE_ALIGN_MASK & uaddr ) != 0 )
     {
-
+        uaddr += ( UBYTE_ALIGN - 1 );
+        uaddr &= ~( UBYTE_ALIGN_MASK );
+        total_size -= uaddr - ( (size_t) addr );
     }
+
+    aligned_heap = (uint8_t*) uaddr;
 
     return id;
 }

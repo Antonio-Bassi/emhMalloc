@@ -62,7 +62,7 @@ uHeapId_t ucreate(void* addr, size_t size)
     }
 
     // Perform heap address alignment 
-    if( (uAddr & uBYTE_ALIGN_MASK) != 0 )
+    if( 0 != (uAddr & uBYTE_ALIGN_MASK) )
     {
         uAddr += uBYTE_ALIGNMENT - 1;
         uAddr &= ~( (size_t) uBYTE_ALIGN_MASK );
@@ -84,6 +84,9 @@ uHeapId_t ucreate(void* addr, size_t size)
     uNewBlock       = (void*) uAlignedAddr;
     uNewBlock->size = uAddr - ((size_t)uNewBlock);
     uNewBlock->next = uStaticLinks[uHeapIdx].uEnd;
+
+    uStaticLinks[uHeapIdx].uRemainBytes  = uNewBlock->size;  
+    uStaticLinks[uHeapIdx].uFreeBytes    = uNewBlock->size;
     
     uHeapIdx = uStaticLinks[uHeapIdx].id;
 
@@ -99,9 +102,10 @@ void* umalloc(uHeapId_t heapId, size_t size)
     }
 
     uHeapId_t       uHeapIdx = uHeapIdx & ~(uHEAPID_BITMASK);
-    uBlockLink_t*   uHeap = uStaticLinks[uHeapIdx].uStart;
+    uHeapLink_t*    uHeap = &uStaticLinks[uHeapIdx];
+    uBlockLink_t*   uBlock, uPrevBlock, uNewBlock;
 
-    if( size > uHeap->size )
+    if( size > uBlock->size )
     {
         /*
          * Requesting a size greater than the available.
@@ -110,7 +114,18 @@ void* umalloc(uHeapId_t heapId, size_t size)
         return uPtr;
     }
 
-    
+    size += uBlockLinkSize;
+    if( 0 != ( size & uBYTE_ALIGN_MASK ) )
+    {
+        size += ( uBYTE_ALIGNMENT - ( size & uBYTE_ALIGN_MASK ) );
+    }
+
+    if( ( size > 0 ) && ( size <= uHeap->uFreeBytes ) )
+    {
+        
+
+    }
+
 
 
 

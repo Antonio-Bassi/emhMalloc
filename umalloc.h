@@ -25,6 +25,8 @@ typedef struct uBlockLink_t
 typedef struct uHeapLink_t
 {
     uHeapId_t       id;
+    size_t          uFreeBytes;
+    size_t          uRemainBytes;
     uBlockLink_t*   uStart;
     uBlockLink_t*   uEnd;   
 }uHeapLink_t;

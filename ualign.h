@@ -16,32 +16,32 @@
 
 #include "uportmacro.h"
  
-#define U_ALIGN_BOUNDARY 4
+#define uBYTE_ALIGNMENT 4
 
-#if U_ALIGN_BOUNDARY == 32
-#define U_BYTE_MASK 0x001F
-#endif /* U_ALIGN_BOUNDARY == 32 */
+#if uBYTE_ALIGNMENT == 32
+#define uBYTE_ALIGN_MASK 0x001F
+#endif /* uBYTE_ALIGNMENT == 32 */
 
-#if U_ALIGN_BOUNDARY == 16
-#define U_BYTE_MASK 0x000F
-#endif /* U_ALIGN_BOUNDARY == 16 */
+#if uBYTE_ALIGNMENT == 16
+#define uBYTE_ALIGN_MASK 0x000F
+#endif /* uBYTE_ALIGNMENT == 16 */
 
-#if U_ALIGN_BOUNDARY == 8
-#define U_BYTE_MASK 0x0007
-#endif /* U_ALIGN_BOUNDARY == 8 */
+#if uBYTE_ALIGNMENT == 8
+#define uBYTE_ALIGN_MASK 0x0007
+#endif /* uBYTE_ALIGNMENT == 8 */
 
-#if U_ALIGN_BOUNDARY == 4
-#define U_BYTE_MASK 0x0003
-#endif /* U_ALIGN_BOUNDARY == 4 */
+#if uBYTE_ALIGNMENT == 4
+#define uBYTE_ALIGN_MASK 0x0003
+#endif /* uBYTE_ALIGNMENT == 4 */
 
-#if U_ALIGN_BOUNDARY == 2
-#define U_BYTE_MASK 0x0001
-#endif /* U_ALIGN_BOUNDARY == 2 */
+#if uBYTE_ALIGNMENT == 2
+#define uBYTE_ALIGN_MASK 0x0001
+#endif /* uBYTE_ALIGNMENT == 2 */
 
-#if U_ALIGN_BOUNDARY == 1
-#define U_BYTE_MASK 0x0000
-#endif /* U_ALIGN_BOUNDARY == 1 */
+#if uBYTE_ALIGNMENT == 1
+#define uBYTE_ALIGN_MASK 0x0000
+#endif /* uBYTE_ALIGNMENT == 1 */
 
-#ifndef U_ALIGN_BOUNDARY
+#ifndef uBYTE_ALIGNMENT
 #error "Invalid alignment boundary or no alignment boundary defined!"
 #endif

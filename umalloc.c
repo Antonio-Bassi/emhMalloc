@@ -2,11 +2,11 @@
  * @file    umalloc.c
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   umalloc source code.
- * @version 0.1
+ * @version alpha - 0.1
  * @date    2022-10-11
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 
 #include <stdio.h>
@@ -15,39 +15,35 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "ualign.h"
 #include "umalloc.h"
 
-#define UBYTE_ALIGN      4
-#define UBYTE_ALIGN_MASK 0x0003
+static const size_t uHeapLinkSize = (sizeof(uHeapLink_t) + ((size_t)(U_ALIGN_BOUNDARY - 1))) & ~((size_t)U_BYTE_MASK);
 
-static const uHeapStructSize = ( sizeof(uHeap_link_t) + ( UBYTE_ALIGN - 1 ) ) & ~( (size_t) UBYTE_ALIGN_MASK );
-
-
-
-uHeapId_t ucreate(void* addr, size_t size)
+uHeapLink_t uStaticLink =
 {
-    uHeapId_t   id = 0;
-    uint8_t*    aligned_heap = NULL;
-    uint32_t    uaddr = 0;
-    size_t      total_size = size;
+    .id = (uHeapId_t)0,
+    .size = 0,
+    .next_block = NULL,
+    .next_heap = &uStaticLink
+};
 
-    uaddr = ( uint32_t ) addr;
+uHeapId_t ucreate(void *addr, size_t size)
+{
+    uHeapLink_t uNewHeap = {0};
 
-    // A misaligned address was provided, fix it for access consistency.
-    if( ( UBYTE_ALIGN_MASK & uaddr ) != 0 )
+    uint8_t *uAligned;
+    size_t uAddr;
+    size_t uTotalSize = size;
+
+    uAddr = (size_t)(addr);
+    if ( ((uAddr)&U_BYTE_MASK) != 0)
     {
-        uaddr += ( UBYTE_ALIGN - 1 );
-        uaddr &= ~( UBYTE_ALIGN_MASK );
-        total_size -= uaddr - ( (size_t) addr );
+        uAddr += (U_ALIGN_BOUNDARY - 1);
+        uAddr &= ~((size_t)(U_BYTE_MASK));
+        uTotalSize -= uAddr - ((size_t)addr);
     }
+    uAligned = (uint8_t*) uAddr;
 
-    aligned_heap = (uint8_t*) uaddr;
-
-    return id;
+    return 0;
 }
-
-
-
-
-
-

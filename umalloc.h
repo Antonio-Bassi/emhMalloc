@@ -9,31 +9,37 @@
  * 
  */
 
+#define UMALLOC_BITS_PER_BYTE   8
+#define UMALLOC_MAX_HEAPS       0x60
+#define UMALLOC_N_HEAPS         4
 
-#define uHEAPID_BITMASK 0x80
-#define uMAX_NUM_OF_HEAPS 0x7F
-#define uNUM_OF_HEAPS 10
+#if !defined(UMALLOC_N_HEAPS)
+#define uNUM_OF_HEAPS 2
+#elif   UMALLOC_N_HEAPS > UMALLOC_MAX_HEAPS
+#undef  UMALLOC_N_HEAPS
+#define UMALLOC_N_HEAPS 2
+#warning "umalloc error, number of heaps macro exceeds the maximum, macro redefined to 2"
+#endif /* uNUM_OF_HEAPS */
 
-typedef unsigned char uHeapId_t;
+typedef signed char u_heap_id_t;
 
-typedef struct uBlockLink_t
+typedef struct u_block_link_t
 {
-    size_t size;
-    struct uBlockLink_t* next;
-}uBlockLink_t;
+    size_t u_block_size;
+    struct u_block_link_t* u_next_free;
+}u_block_link_t;
 
-typedef struct uHeapLink_t
+typedef struct u_heap_link_t
 {
-    uHeapId_t       id;
-    size_t          uFreeBytes;
-    size_t          uRemainBytes;
-    uBlockLink_t*   uStart;
-    uBlockLink_t*   uEnd;   
-}uHeapLink_t;
+    u_block_link_t  u_start;
+    u_block_link_t* u_end;
+    size_t          u_free_bytes;
+    size_t          u_remain_bytes;   
+}u_heap_link_t;
 
-uHeapId_t   ucreate(void* addr, size_t size);
-uHeapId_t   udestroy(uHeapId_t heapId);
-void*       umalloc(uHeapId_t heapId, size_t size);
-void*       ucalloc(uHeapId_t heapId, size_t size);
-void*       urealloc(uHeapId_t heapId, size_t size);
-void        ufree(uHeapId_t heapId, void* addr);
+u_heap_id_t u_create(void* addr, size_t heap_size);
+u_heap_id_t u_destroy(u_heap_id_t heap_id);
+void*       u_malloc(u_heap_id_t heap_id, size_t size);
+void*       u_calloc(u_heap_id_t heap_id, size_t size);
+void*       u_realloc(u_heap_id_t heap_id, size_t size);
+void        u_free(u_heap_id_t heap_id, void* addr);

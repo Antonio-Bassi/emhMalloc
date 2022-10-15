@@ -18,116 +18,89 @@
 #include "ualign.h"
 #include "umalloc.h"
 
+static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( UMALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) UMALLOC_BYTE_ALIGN_MASK );
 
-static const size_t uBlockLinkSize = ( sizeof(uBlockLink_t) + ( ( size_t ) ( uBYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) uBYTE_ALIGN_MASK );
+#define UMALLOC_MIN_BLOCK_SIZE  ( ( size_t )( u_block_link_size << 1 ) );
 
-static uHeapLink_t uStaticLinks[uNUM_OF_HEAPS] = {0};
+static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};
 
-static int uHeapIdExists(uHeapId_t heapId)
+
+u_heap_id_t u_create(void* addr, size_t heap_size)
 {
-    uHeapId_t uHeapIdx = heapId;
-    uHeapIdx &= ~(uHEAPID_BITMASK);
-    return ( heapId == uStaticLinks[uHeapIdx].id );   
-}
+    u_heap_id_t     u_heap_idx = 0;
+    u_heap_link_t*  u_first_free_link = u_static_links;
+    u_block_link_t* u_first_free_block;
+    uint8_t*        u_aligned_addr;
+    size_t          u_addr;
+    size_t          u_total_heap_size = heap_size;
 
-uHeapId_t ucreate(void* addr, size_t size)
-{
-    uHeapId_t       uHeapIdx        =   0;
-    uBlockLink_t*   uNewBlock       =   {0};
-    size_t          uAddr           =   (size_t)( addr );
-    size_t          uTotalHeapSize  =   size;
-    uint8_t*        uAlignedAddr    =   NULL; 
-    
-    // Search for available slots
-    while ( uNUM_OF_HEAPS > uHeapIdx )
+    // Search for available links
+    for(u_heap_idx = 0; u_heap_idx < UMALLOC_N_HEAPS; u_heap_idx++)
     {
-        if( !( ( uStaticLinks[uHeapIdx].id ) & ( (uHeapId_t)uHEAPID_BITMASK ) ) )
+        if( NULL == u_first_free_link[u_heap_idx].u_end )
         {
-            uStaticLinks[uHeapIdx].id = ( uHeapIdx | ( (uHeapId_t) uHEAPID_BITMASK ) );
-            break;
+            break;   
         }
-        uHeapIdx++;
     }
-
-    if( uHeapIdx >= uNUM_OF_HEAPS )
-    {
-        /*
-         * If we are here, it means we ran out of heap slots.
-         * Return an invalid heap id.
-         * 
-         * obs: Heap IDs must be greater than 127 due to the allocation bit marker.
-         */
-        uHeapIdx = 0;
-        return uHeapIdx;
-    }
-
-    // Perform heap address alignment 
-    if( 0 != (uAddr & uBYTE_ALIGN_MASK) )
-    {
-        uAddr += uBYTE_ALIGNMENT - 1;
-        uAddr &= ~( (size_t) uBYTE_ALIGN_MASK );
-        uTotalHeapSize -= uAddr - ((size_t)addr);
-    }
-    uAlignedAddr = (uint8_t*) uAddr;
-
-    uStaticLinks[uHeapIdx].uStart       = (void*)(uAlignedAddr);
-    uStaticLinks[uHeapIdx].uStart->size = (size_t) 0;
-
-    uAddr = ((size_t) uAlignedAddr ) + uTotalHeapSize;
-    uAddr -= uBlockLinkSize;
-    uAddr &= ~( (size_t) uBYTE_ALIGN_MASK );
-
-    uStaticLinks[uHeapIdx].uEnd         = (void*)(uAddr);
-    uStaticLinks[uHeapIdx].uEnd->size   = (size_t) 0;
-    uStaticLinks[uHeapIdx].uEnd->next   = NULL;
-
-    uNewBlock       = (void*) uAlignedAddr;
-    uNewBlock->size = uAddr - ((size_t)uNewBlock);
-    uNewBlock->next = uStaticLinks[uHeapIdx].uEnd;
-
-    uStaticLinks[uHeapIdx].uRemainBytes  = uNewBlock->size;  
-    uStaticLinks[uHeapIdx].uFreeBytes    = uNewBlock->size;
     
-    uHeapIdx = uStaticLinks[uHeapIdx].id;
+    /*
+     * No links are available at the moment.
+     * This means the maximum number of manageable heaps was reached.
+     * Therefore return an invalid heap id.
+     */
+    if( u_heap_idx >= UMALLOC_N_HEAPS )
+    {
+        u_heap_idx = -1;
+        return u_heap_idx;
+    }
 
-    return uHeapIdx;
+    /*
+     * The address must be a aligned. 
+     * Perform necessary corrections
+     */
+    u_addr = (size_t)( addr );
+    if( 0 != ( u_addr & UMALLOC_BYTE_ALIGN_MASK ) )
+    {
+        u_addr += (UMALLOC_BYTE_ALIGNMENT - 1);
+        u_addr &= ~( (size_t) UMALLOC_BYTE_ALIGN_MASK );
+        u_total_heap_size -= u_addr - ( (size_t) addr ); 
+    }
+    u_aligned_addr = (uint8_t*) u_addr;
+
+    u_first_free_link[u_heap_idx].u_start.u_next_free   = (void*) u_aligned_addr;
+    u_first_free_link[u_heap_idx].u_start.u_block_size  = (size_t) 0;
+
+    u_addr = ( (size_t) u_aligned_addr ) + u_total_heap_size;
+    u_addr -= u_block_link_size;
+    u_addr &= ~( (size_t) UMALLOC_BYTE_ALIGN_MASK );
+
+    u_first_free_link[u_heap_idx].u_end = (void*) u_addr;
+    u_first_free_link[u_heap_idx].u_end->u_block_size = 0;
+    u_first_free_link[u_heap_idx].u_end->u_next_free = NULL;
+
+    u_first_free_block                  = (void*) u_aligned_addr;
+    u_first_free_block->u_block_size    = u_addr - ( (size_t) u_first_free_block );
+    u_first_free_block->u_next_free     = u_first_free_link[u_heap_idx].u_end;
+
+    u_first_free_link[u_heap_idx].u_free_bytes      = u_first_free_block->u_block_size;
+    u_first_free_link[u_heap_idx].u_remain_bytes    = u_first_free_block->u_block_size;
+
+    return u_heap_idx;
 }
 
-void* umalloc(uHeapId_t heapId, size_t size)
+void* u_malloc(u_heap_id_t heap_id, size_t size)
 {
-    void* uPtr = NULL;
-    if( 0 == uHeapIdExists(heapId) )
+    void* u_block_ptr = NULL;
+    if( ( 0 > heap_id ) || ( UMALLOC_MAX_HEAPS < heap_id ) )
     {
-        return uPtr;
+        return u_block_ptr;
     }
 
-    uHeapId_t       uHeapIdx = uHeapIdx & ~(uHEAPID_BITMASK);
-    uHeapLink_t*    uHeap = &uStaticLinks[uHeapIdx];
-    uBlockLink_t*   uBlock, uPrevBlock, uNewBlock;
-
-    if( size > uBlock->size )
-    {
-        /*
-         * Requesting a size greater than the available.
-         * umalloc tragedy, no memory left.
-         */
-        return uPtr;
-    }
-
-    size += uBlockLinkSize;
-    if( 0 != ( size & uBYTE_ALIGN_MASK ) )
-    {
-        size += ( uBYTE_ALIGNMENT - ( size & uBYTE_ALIGN_MASK ) );
-    }
-
-    if( ( size > 0 ) && ( size <= uHeap->uFreeBytes ) )
-    {
-        
-
-    }
-
-
+    u_block_link_t* u_heap = &u_static_links[heap_id].u_start;
+    
 
 
 }
+
+
 

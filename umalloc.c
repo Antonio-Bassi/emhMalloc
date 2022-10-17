@@ -26,7 +26,7 @@ static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};
 
 static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 1 );
 
-static void u_link_free_block(u_heap_link_t* u_heap, u_block_link_t* u_block)
+static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
 {
     u_block_link_t* u_iterator;
     uint8_t* u_addr;
@@ -35,21 +35,28 @@ static void u_link_free_block(u_heap_link_t* u_heap, u_block_link_t* u_block)
      * Iterate through the links until an address higher than the one of the 
      * given block is found. 
      */
-    for(u_iterator = &u_heap->u_start; u_iterator->u_next_free < u_block; u_iterator = u_iterator->u_next_free );
+    for(u_iterator = &u_link->u_start; u_iterator->u_next_free < u_block; u_iterator = u_iterator->u_next_free );
 
-    u_addr = (uint8_t*) u_iterator;
-
-    if( ( u_addr + u_block->u_block_size ) == 
-        ( ( uint8_t*) u_iterator->u_next_free ) )
+    /* Is the block being linked and the block linked after contiguous? */
+    u_addr = (uint8_t *) u_iterator;
+    if( ( u_addr + u_iterator->u_block_size ) == ( ( uint8_t*) u_block ) )
     {
-        if( u_heap->u_end != u_iterator->u_next_free )
+        u_iterator->u_block_size += u_block->u_block_size;
+        u_block = u_iterator;
+    }
+    
+    /* Is the block being linked and the one linked before contiguous? */
+    u_addr = (uint8_t *) u_block;
+    if( ( u_addr + u_block->u_block_size ) == ( ( uint8_t* ) u_iterator->u_next_free ) )
+    {
+        if( u_link->u_end == u_iterator->u_next_free )
         {
-            u_block->u_block_size += u_iterator->u_next_free->u_block_size;
-            u_block->u_next_free = u_iterator->u_next_free->u_next_free;
+            u_block->u_next_free = u_link->u_end;
         }
         else
         {
-            u_block->u_next_free = u_heap->u_end;
+            u_block->u_block_size += u_iterator->u_next_free->u_block_size;
+            u_block->u_next_free = u_iterator->u_next_free->u_next_free;
         }
     }
     else
@@ -195,6 +202,28 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
         }
     }
     return u_block_ptr;
+}
+
+void u_free(u_heap_id_t heap_id, void* addr)
+{
+    uint8_t* u_addr = (uint8_t *) addr;
+    u_block_link_t *u_block;
+    u_heap_link_t  *u_link = &u_static_links[heap_id];
+
+    if( NULL != addr )
+    {
+        u_addr -= u_block_link_size;
+        u_block = (void *) u_addr;
+        
+        if( ( 0 != ( u_block->u_block_size & u_allocation_bit ) ) && 
+            ( NULL == u_block->u_next_free ) )
+        {
+            u_block->u_block_size &= ~(u_allocation_bit);
+            u_link->u_free_bytes += u_block->u_block_size;
+            u_link_free_block(u_link, u_block);
+        }
+    }
+    return;
 }
 
 

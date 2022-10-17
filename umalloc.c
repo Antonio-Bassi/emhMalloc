@@ -2,7 +2,7 @@
  * @file    umalloc.c
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   umalloc source code.
- * @version alpha - 0.1
+ * @version alpha
  * @date    2022-10-11
  *
  * @copyright Copyright (c) 2022
@@ -18,13 +18,37 @@
 #include "ualign.h"
 #include "umalloc.h"
 
-static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( UMALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) UMALLOC_BYTE_ALIGN_MASK );
 
-#define UMALLOC_MIN_BLOCK_SIZE  ( ( size_t )( u_block_link_size << 1 ) )
+#define __u_create_zone__(){    \
+	(void*) NULL;	            \
+}
+
+#define __u_lock_zone__(){   \
+    (void*) NULL;            \
+}                               
+
+#define __u_unlock_zone__(){ \
+    (void*) NULL;            \
+}
+static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( UMALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) UMALLOC_BYTE_ALIGN_MASK );
 
 static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};
 
 static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 1 );
+
+#define UMALLOC_MIN_BLOCK_SIZE  ( ( size_t )( u_block_link_size << 1 ) )
+
+#ifndef __u_create_zone__
+#error "Error: Initialisation of critical zone mutex was not defined!"
+#endif /* __u_lock_zone__ */
+
+#ifndef __u_lock_zone__
+#error "Error: Start of critical zone was not defined!"
+#endif /* __u_lock_zone__ */
+
+#ifndef __u_unlock_zone__
+#error "Error: End of critical zone was not defined!"
+#endif /* __u_unlock_zone__ */
 
 static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
 {
@@ -49,6 +73,7 @@ static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
     u_addr = (uint8_t *) u_block;
     if( ( u_addr + u_block->u_block_size ) == ( ( uint8_t* ) u_iterator->u_next_free ) )
     {
+        /* Are we at the end of the heap links? */
         if( u_link->u_end == u_iterator->u_next_free )
         {
             u_block->u_next_free = u_link->u_end;
@@ -74,6 +99,7 @@ static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
 
 u_heap_id_t u_create(void* addr, size_t heap_size)
 {
+    static int u_crit_zone_init = 0;
     u_heap_id_t     u_heap_idx = 0;
     u_heap_link_t   *u_first_free_link = u_static_links;
     u_block_link_t  *u_first_free_block;
@@ -81,6 +107,14 @@ u_heap_id_t u_create(void* addr, size_t heap_size)
     size_t          u_addr;
     size_t          u_total_heap_size = heap_size;
 
+    /* Initialises mutex */
+    if( 0 == u_crit_zone_init )
+    {
+    	__u_create_zone__();
+    	u_crit_zone_init = 1;
+    }
+    
+    __u_lock_zone__();
     /* Search for available links */
     for(u_heap_idx = 0; u_heap_idx < UMALLOC_N_HEAPS; u_heap_idx++)
     {
@@ -105,6 +139,7 @@ u_heap_id_t u_create(void* addr, size_t heap_size)
      * The address must be a aligned. 
      * Perform necessary corrections
      */
+    
     u_addr = (size_t)( addr );
     if( 0 != ( u_addr & UMALLOC_BYTE_ALIGN_MASK ) )
     {
@@ -131,12 +166,14 @@ u_heap_id_t u_create(void* addr, size_t heap_size)
 
     u_first_free_link[u_heap_idx].u_free_bytes      = u_first_free_block->u_block_size;
     u_first_free_link[u_heap_idx].u_remain_bytes    = u_first_free_block->u_block_size;
+    __u_unlock_zone__();
 
     return u_heap_idx;
 }
 
 void* u_malloc(u_heap_id_t heap_id, size_t req_size)
 {
+    __u_lock_zone__();
     void* u_block_ptr = NULL;
 
     /* Is heap ID not valid? */
@@ -201,6 +238,7 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
             }
         }
     }
+    __u_unlock_zone__();
     return u_block_ptr;
 }
 
@@ -219,8 +257,10 @@ void u_free(u_heap_id_t heap_id, void* addr)
             ( NULL == u_block->u_next_free ) )
         {
             u_block->u_block_size &= ~(u_allocation_bit);
+            __u_lock_zone__();
             u_link->u_free_bytes += u_block->u_block_size;
             u_link_free_block(u_link, u_block);
+            __u_unlock_zone__();
         }
     }
     return;

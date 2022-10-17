@@ -2,7 +2,7 @@
  * @file    umalloc.h
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   umalloc core function set.
- * @version alpha - 0.1
+ * @version alpha
  * @date    2022-10-11
  * 
  * @copyright Copyright (c) 2022
@@ -38,7 +38,6 @@ typedef struct u_heap_link_t
 }u_heap_link_t;
 
 u_heap_id_t u_create(void* addr, size_t heap_size);
-u_heap_id_t u_destroy(u_heap_id_t heap_id);
 void*       u_malloc(u_heap_id_t heap_id, size_t size);
 void*       u_calloc(u_heap_id_t heap_id, size_t size);
 void*       u_realloc(u_heap_id_t heap_id, size_t size);

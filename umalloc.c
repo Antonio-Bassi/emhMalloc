@@ -33,19 +33,8 @@
 
 #include "ualign.h"
 #include "umalloc.h"
+#include "uportmacro.h"
 
-
-#define __u_create_zone__(){    \
-	(void*) NULL;	            \
-}
-
-#define __u_lock_zone__(){   \
-    (void*) NULL;            \
-}                               
-
-#define __u_unlock_zone__(){ \
-    (void*) NULL;            \
-}
 static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( UMALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) UMALLOC_BYTE_ALIGN_MASK );
 
 static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};

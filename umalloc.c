@@ -50,7 +50,8 @@ static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( U
 
 static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};
 
-static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 1 );
+static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 16 );
+static size_t u_heap_id_mask   = ( (size_t) UMALLOC_HEAP_ID_BITMASK ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 );
 
 #define UMALLOC_MIN_BLOCK_SIZE  ( ( size_t )( u_block_link_size << 1 ) )
 
@@ -66,6 +67,33 @@ static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLO
 #error "Error: End of critical zone was not defined!"
 #endif /* __u_unlock_zone__ */
 
+/**
+ * @brief Packs heap id information by casting it into a size_t and shifting bits
+ *        to the appropriate region.
+ * @param heap_id heap id to be packed into a size_t variable.
+ * @return size_t 
+ */
+static size_t u_pack_heap_id(u_heap_id_t heap_id)
+{
+    return ( ( size_t )( heap_id & UMALLOC_HEAP_ID_BITMASK ) ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 );
+}
+
+/**
+ * @brief Unpacks heap id information from a size_t variable. By shifting it back to the original
+ *        position and casting it to a u_heap_id_t
+ * @param u_block_size 
+ * @return u_heap_id_t 
+ */
+static u_heap_id_t u_unpack_heap_id(size_t u_block_size)
+{
+    return ( u_heap_id_t )( ( ( ( u_block_size ) >> ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 ) ) & ( UMALLOC_HEAP_ID_BITMASK ) );
+}
+
+/**
+ * @brief Performs memory coallescing by linking a free block to the rest of the heap.
+ * @param u_link    Pointer to heap static link.
+ * @param u_block   Pointer of a free block to be linked.
+ */
 static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
 {
     u_block_link_t* u_iterator;
@@ -113,7 +141,13 @@ static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
     return;
 }
 
-u_heap_id_t u_create(void* addr, size_t heap_size)
+/**
+ * @brief Initialises heap space and links it into static links array.
+ * @param heap_addr First memory address from the heap region.
+ * @param heap_size Size of the heap memory region.
+ * @return u_heap_id_t heap identifier, which is an index from u_static_links array.
+ */
+u_heap_id_t u_create(void* heap_addr, size_t heap_size)
 {
     static int u_crit_zone_init = 0;
     u_heap_id_t     u_heap_idx = 0;
@@ -156,12 +190,12 @@ u_heap_id_t u_create(void* addr, size_t heap_size)
      * Perform necessary corrections
      */
     
-    u_addr = (size_t)( addr );
+    u_addr = (size_t)( heap_addr );
     if( 0 != ( u_addr & UMALLOC_BYTE_ALIGN_MASK ) )
     {
         u_addr += (UMALLOC_BYTE_ALIGNMENT - 1);
         u_addr &= ~( (size_t) UMALLOC_BYTE_ALIGN_MASK );
-        u_total_heap_size -= u_addr - ( (size_t) addr ); 
+        u_total_heap_size -= u_addr - ( (size_t) heap_addr ); 
     }
     u_aligned_addr = (uint8_t*) u_addr;
 
@@ -187,6 +221,14 @@ u_heap_id_t u_create(void* addr, size_t heap_size)
     return u_heap_idx;
 }
 
+/**
+ * @brief Allocates memory region into designated heap space specified by heap_id
+ *        and returns a memory aligned pointer to allocated memory area.
+ * 
+ * @param heap_id id number of the heap to be used.
+ * @param req_size size of memory to be allocated from the heap.
+ * @return void* 
+ */
 void* u_malloc(u_heap_id_t heap_id, size_t req_size)
 {
     __u_lock_zone__();
@@ -250,6 +292,7 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
                 }
 
                 u_block->u_block_size |= u_allocation_bit;
+                u_block->u_block_size |= u_pack_heap_id(heap_id);
                 u_block->u_next_free = NULL;
             }
         }
@@ -258,26 +301,35 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
     return u_block_ptr;
 }
 
-void u_free(u_heap_id_t heap_id, void* addr)
+/**
+ * @brief Frees allocated memory region from heap and updates metadata.
+ * 
+ * @param addr Address of the memory region to be freed.
+ */
+void u_free(void* addr)
 {
     uint8_t* u_addr = (uint8_t *) addr;
     u_block_link_t *u_block;
-    u_heap_link_t  *u_link = &u_static_links[heap_id];
+    u_heap_id_t heap_id;
+    size_t u_id_mask;
+    u_heap_link_t  *u_link;
 
     if( NULL != addr )
     {
         u_addr -= u_block_link_size;
         u_block = (void *) u_addr;
-        
-        if( ( 0 != ( u_block->u_block_size & u_allocation_bit ) ) && 
+        heap_id = u_unpack_heap_id(u_block->u_block_size);
+      
+        __u_lock_zone__();
+        if( ( 0 != ( u_block->u_block_size & u_allocation_bit ) ) &&
             ( NULL == u_block->u_next_free ) )
         {
-            u_block->u_block_size &= ~(u_allocation_bit);
-            __u_lock_zone__();
+            u_link = &u_static_links[heap_id];
+            u_block->u_block_size &= ~(u_allocation_bit | u_heap_id_mask);
             u_link->u_free_bytes += u_block->u_block_size;
             u_link_free_block(u_link, u_block);
-            __u_unlock_zone__();
         }
+        __u_unlock_zone__();
     }
     return;
 }

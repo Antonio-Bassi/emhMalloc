@@ -14,6 +14,7 @@
  *  
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
  * @file    umalloc.h
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   umalloc core function set.
@@ -24,8 +25,9 @@
  * 
  */
 
+#define UMALLOC_HEAP_ID_BITMASK 0x7F
 #define UMALLOC_BITS_PER_BYTE   8
-#define UMALLOC_MAX_HEAPS       0x60
+#define UMALLOC_MAX_HEAPS       127
 #define UMALLOC_N_HEAPS         4
 
 #if !defined(UMALLOC_N_HEAPS)
@@ -52,8 +54,8 @@ typedef struct u_heap_link_t
     size_t          u_remain_bytes;   
 }u_heap_link_t;
 
-u_heap_id_t u_create(void* addr, size_t heap_size);
+u_heap_id_t u_create(void* heap_addr, size_t heap_size);
 void*       u_malloc(u_heap_id_t heap_id, size_t size);
 void*       u_calloc(u_heap_id_t heap_id, size_t size);
 void*       u_realloc(u_heap_id_t heap_id, size_t size);
-void        u_free(u_heap_id_t heap_id, void* addr);
+void        u_free(void* addr);

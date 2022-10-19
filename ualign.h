@@ -30,8 +30,6 @@
  * @copyright Copyright (c) 2022
  * 
  */
-
-#include "uportmacro.h"
  
 #define UMALLOC_BYTE_ALIGNMENT 4
 

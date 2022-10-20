@@ -75,7 +75,7 @@ static size_t u_pack_heap_id(u_heap_id_t heap_id)
  */
 static u_heap_id_t u_unpack_heap_id(size_t u_block_size)
 {
-    return ( u_heap_id_t )( ( ( ( u_block_size ) >> ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 ) ) & ( UMALLOC_HEAP_ID_BITMASK ) );
+    return ( u_heap_id_t )( ( ( u_block_size ) >> ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 ) ) & ( UMALLOC_HEAP_ID_BITMASK ) );
 }
 
 /**

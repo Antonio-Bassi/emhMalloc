@@ -31,11 +31,12 @@
  */
 
 /*
- * These macros are user defined and strictly necessary 
- * in order to create the critical section (or zone if 
- * you will) thus protecting u_malloc in a multithread
- * environment
+ * This macros are user defined and strictly necessary 
+ * in order to create the critical section (or critical 
+ * zone if you will) thus protecting u_malloc in a multi-
+ * -thread environment.
  */
+
 #define __u_create_zone__(){    \
 	(void*) NULL;	            \
 }

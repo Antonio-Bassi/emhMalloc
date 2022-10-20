@@ -300,7 +300,6 @@ void u_free(void* addr)
     uint8_t* u_addr = (uint8_t *) addr;
     u_block_link_t *u_block;
     u_heap_id_t heap_id;
-    size_t u_id_mask;
     u_heap_link_t  *u_link;
 
     if( NULL != addr )

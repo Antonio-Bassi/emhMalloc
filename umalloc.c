@@ -214,19 +214,19 @@ u_heap_id_t u_create(void* heap_addr, size_t heap_size)
  * @brief Allocates memory region into designated heap space specified by heap_id
  *        and returns a memory aligned pointer to allocated memory area.
  * 
- * @param heap_id id number of the heap to be used.
+ * @param heap_id id number of the heap memory region to be used.
  * @param req_size size of memory to be allocated from the heap.
  * @return void* 
  */
 void* u_malloc(u_heap_id_t heap_id, size_t req_size)
 {
     __u_lock_zone__();
-    void* u_block_ptr = NULL;
+    void* u_block_addr = NULL;
 
     /* Is heap ID not valid? */
     if( ( 0 > heap_id ) || ( UMALLOC_MAX_HEAPS < heap_id ) )
     {
-        return u_block_ptr;
+        return u_block_addr;
     }
 
     u_heap_link_t  *u_link = &u_static_links[heap_id];
@@ -261,7 +261,7 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
             if( u_link->u_end != u_block )
             {
                 /* If we are here it means a suitable block has been found. */
-                u_block_ptr = ( void* )( ( ( uint8_t* ) u_prev_block->u_next_free ) + u_block_link_size );
+                u_block_addr = ( void* )( ( ( uint8_t* ) u_prev_block->u_next_free ) + u_block_link_size );
                 u_prev_block->u_next_free = u_block->u_next_free;
 
                 if(  UMALLOC_MIN_BLOCK_SIZE < ( u_block->u_block_size - req_size ) )
@@ -287,7 +287,7 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
         }
     }
     __u_unlock_zone__();
-    return u_block_ptr;
+    return u_block_addr;
 }
 
 /**
@@ -297,10 +297,10 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
  */
 void u_free(void* addr)
 {
-    uint8_t* u_addr = (uint8_t *) addr;
+    uint8_t *u_addr = (uint8_t *) addr;
     u_block_link_t *u_block;
     u_heap_id_t heap_id;
-    u_heap_link_t  *u_link;
+    u_heap_link_t *u_link;
 
     if( NULL != addr )
     {
@@ -322,5 +322,75 @@ void u_free(void* addr)
     return;
 }
 
+/**
+ * @brief   Allocates memory for an array of num objects of size 
+ *          and initializes all bytes in the allocated storage to 
+ *          zero. 
+ * 
+ * @param heap_id   id number of the heap memory region to be used.
+ * @param n_elems   number of elements.
+ * @param elem_size individual element size.
+ * @return void* 
+ */
+void* u_calloc(u_heap_id_t heap_id, size_t n_elems, size_t elem_size)
+{
+    void *u_block_addr = NULL;
+    size_t tot_size = (size_t)( n_elems * elem_size );
+
+    u_block_addr = u_malloc(heap_id, tot_size);
+
+    if( NULL != u_block_addr )
+    {
+        memset(u_block_addr, 0x00, tot_size);
+    }
+
+    return u_block_addr;
+}
+
+/**
+ * @brief 
+ * 
+ * @param addr 
+ * @param req_size 
+ * @return void* 
+ */
+void* u_realloc(void *addr, size_t req_size)
+{
+    void *u_block_addr = NULL;
+    uint8_t *u_addr = (uint8_t *) addr;
+    u_block_link_t *u_block;
+    u_heap_id_t heap_id;
+
+    /* Is given pointer valid? */
+    if( NULL != addr )
+    {
+        /* 
+         * Are we reallocating to a size of 0 bytes? 
+         * Might as well just free the block... 
+         */
+        if( 0 == req_size )
+        {
+            u_free(addr);
+            return u_block_addr;
+        }
+
+        /* Extract heap_id */
+        u_addr -= u_block_link_size;
+        u_block = (void *) u_addr;
+        heap_id = u_unpack_heap_id(u_block->u_block_size);
+
+        u_block_addr = u_malloc(heap_id, req_size);
+
+        if( NULL != u_block_addr )
+        {
+            memset(u_block_addr, 0x00, req_size);
+            memcpy(u_block_addr, addr, u_block->u_block_size);
+            u_free(addr);
+        }
+        
 
 
+    }
+
+    return u_block_addr;
+}

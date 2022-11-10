@@ -138,7 +138,7 @@ static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
  */
 u_heap_id_t u_create(void* heap_addr, size_t heap_size)
 {
-    static int u_crit_zone_init = 0;
+    static int      u_crit_zone_init = 0;
     u_heap_id_t     u_heap_idx = 0;
     u_heap_link_t   *u_first_free_link = u_static_links;
     u_block_link_t  *u_first_free_block;
@@ -175,8 +175,8 @@ u_heap_id_t u_create(void* heap_addr, size_t heap_size)
     }
 
     /*
-     * The address must be a aligned. 
-     * Perform necessary corrections
+     * The address must be aligned. 
+     * Perform necessary corrections.
      */
     
     u_addr = (size_t)( heap_addr );
@@ -214,19 +214,19 @@ u_heap_id_t u_create(void* heap_addr, size_t heap_size)
  * @brief Allocates memory region into designated heap space specified by heap_id
  *        and returns a memory aligned pointer to allocated memory area.
  * 
- * @param heap_id id number of the heap memory region to be used.
- * @param req_size size of memory to be allocated from the heap.
+ * @param heap_id Id number of the heap memory region to be used.
+ * @param size    Size of memory to be allocated from the heap.
  * @return void* 
  */
-void* u_malloc(u_heap_id_t heap_id, size_t req_size)
+void* u_malloc(u_heap_id_t heap_id, size_t size)
 {
     __u_lock_zone__();
-    void* u_block_addr = NULL;
+    void* u_addr = NULL;
 
     /* Is heap ID not valid? */
     if( ( 0 > heap_id ) || ( UMALLOC_MAX_HEAPS < heap_id ) )
     {
-        return u_block_addr;
+        return u_addr;
     }
 
     u_heap_link_t  *u_link = &u_static_links[heap_id];
@@ -236,22 +236,22 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
      * Check if the requested size is valid and can fit the
      * allocation control bit.
      */
-    if( ( 0 == ( req_size & u_allocation_bit ) ) && ( 0 < req_size ) )
+    if( ( 0 == ( size & u_allocation_bit ) ) && ( 0 < size ) )
     {   
         /* Perform necessary corrections on requested size. */
-        req_size += u_block_link_size;
-        if( 0 != ( req_size & UMALLOC_BYTE_ALIGN_MASK ) )
+        size += u_block_link_size;
+        if( 0 != ( size & UMALLOC_BYTE_ALIGN_MASK ) )
         {
-            req_size += ( UMALLOC_BYTE_ALIGNMENT - ( req_size & UMALLOC_BYTE_ALIGN_MASK ) );
+            size += ( UMALLOC_BYTE_ALIGNMENT - ( size & UMALLOC_BYTE_ALIGN_MASK ) );
         }
 
         /* Is requested size possible to fit in ? */
-        if( req_size <= u_link->u_free_bytes )
+        if( size <= u_link->u_free_bytes )
         {
             u_prev_block    = &u_link->u_start;
             u_block         = u_link->u_start.u_next_free;
 
-            while( ( u_block->u_block_size < req_size ) && ( NULL != u_block->u_next_free ) )
+            while( ( u_block->u_block_size < size ) && ( NULL != u_block->u_next_free ) )
             {
                 u_prev_block    = u_block;
                 u_block         = u_block->u_next_free;
@@ -261,14 +261,14 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
             if( u_link->u_end != u_block )
             {
                 /* If we are here it means a suitable block has been found. */
-                u_block_addr = ( void* )( ( ( uint8_t* ) u_prev_block->u_next_free ) + u_block_link_size );
+                u_addr = ( void* )( ( ( uint8_t* ) u_prev_block->u_next_free ) + u_block_link_size );
                 u_prev_block->u_next_free = u_block->u_next_free;
 
-                if(  UMALLOC_MIN_BLOCK_SIZE < ( u_block->u_block_size - req_size ) )
+                if(  UMALLOC_MIN_BLOCK_SIZE < ( u_block->u_block_size - size ) )
                 {
-                    u_new_block = ( void* )( ( ( uint8_t* ) u_block ) + req_size );
-                    u_new_block->u_block_size = u_block->u_block_size - req_size;
-                    u_block->u_block_size = req_size;
+                    u_new_block = ( void* )( ( ( uint8_t* ) u_block ) + size );
+                    u_new_block->u_block_size = u_block->u_block_size - size;
+                    u_block->u_block_size = size;
 
                     /* Insert block into list of free links */
                     u_link_free_block(u_link, u_new_block);
@@ -287,7 +287,7 @@ void* u_malloc(u_heap_id_t heap_id, size_t req_size)
         }
     }
     __u_unlock_zone__();
-    return u_block_addr;
+    return u_addr;
 }
 
 /**
@@ -323,43 +323,59 @@ void u_free(void* addr)
 }
 
 /**
- * @brief   Allocates memory for an array of num objects of size 
- *          and initializes all bytes in the allocated storage to 
+ * @brief   Allocates memory for an array of *n* elements with given
+ *          *size* and initializes all bytes in the allocated storage to 
  *          zero. 
  * 
- * @param heap_id   id number of the heap memory region to be used.
- * @param n_elems   number of elements.
- * @param elem_size individual element size.
+ * @param heap_id   Id number of the heap memory region to be used.
+ * @param n         Number of elements.
+ * @param size      Individual element size.
  * @return void* 
  */
-void* u_calloc(u_heap_id_t heap_id, size_t n_elems, size_t elem_size)
+void* u_calloc(u_heap_id_t heap_id, size_t n, size_t size)
 {
-    void *u_block_addr = NULL;
-    size_t tot_size = (size_t)( n_elems * elem_size );
+    void *u_addr = NULL;
+    size_t tot_size = (size_t)( n * size );
 
-    u_block_addr = u_malloc(heap_id, tot_size);
-
-    if( NULL != u_block_addr )
+    tot_size += u_block_link_size;
+    if( 0 != ( tot_size & UMALLOC_BYTE_ALIGN_MASK ) )
     {
-        memset(u_block_addr, 0x00, tot_size);
+        tot_size += ( UMALLOC_BYTE_ALIGNMENT - ( tot_size & UMALLOC_BYTE_ALIGN_MASK ) );
     }
 
-    return u_block_addr;
+    u_addr = u_malloc(heap_id, tot_size);
+
+    if( NULL != u_addr )
+    {
+        memset(u_addr, 0x00, tot_size);
+    }
+
+    return u_addr;
 }
 
 /**
- * @brief 
+ * @brief   Reallocates given address memory to a different size.
+ *          If there is no sufficient space on the heap for specified
+ *          size u_realloc will return a NULL pointer. 
+ *          
+ *          If realloc succeeds, it will return a pointer to a new memory 
+ *          region with the contents of the previous address. If the requested 
+ *          size is smaller than the given block information will be truncated
+ *          during copy. Otherwise the information will be fully copied from 
+ *          the previous memory region to another.
+ *        
  * 
- * @param addr 
- * @param req_size 
+ * @param addr Address of the memory region to be reallocated.
+ * @param size Requested size of new memory region.
  * @return void* 
  */
-void* u_realloc(void *addr, size_t req_size)
+void* u_realloc(void *addr, size_t size)
 {
-    void *u_block_addr = NULL;
-    uint8_t *u_addr = (uint8_t *) addr;
+    void *u_addr = NULL;
+    uint8_t *x_addr = (uint8_t *) addr;
+    size_t block_size = 0;
     u_block_link_t *u_block;
-    u_heap_id_t heap_id;
+    u_heap_id_t heap_id;   
 
     /* Is given pointer valid? */
     if( NULL != addr )
@@ -368,29 +384,51 @@ void* u_realloc(void *addr, size_t req_size)
          * Are we reallocating to a size of 0 bytes? 
          * Might as well just free the block... 
          */
-        if( 0 == req_size )
+        if( 0 == size )
         {
             u_free(addr);
-            return u_block_addr;
+            return u_addr;
         }
 
-        /* Extract heap_id */
-        u_addr -= u_block_link_size;
-        u_block = (void *) u_addr;
+        /* Extract heap block information */
+        x_addr -= u_block_link_size;
+        u_block = (void *) x_addr;
         heap_id = u_unpack_heap_id(u_block->u_block_size);
+        block_size =  ( u_block->u_block_size & ~(u_allocation_bit | u_heap_id_mask) );
 
-        u_block_addr = u_malloc(heap_id, req_size);
-
-        if( NULL != u_block_addr )
+        /* Align address before allocating */
+        if( 0 != ( size & UMALLOC_BYTE_ALIGN_MASK ) )
         {
-            memset(u_block_addr, 0x00, req_size);
-            memcpy(u_block_addr, addr, u_block->u_block_size);
-            u_free(addr);
+            size += ( UMALLOC_BYTE_ALIGNMENT - ( size & UMALLOC_BYTE_ALIGN_MASK ) );
+        }           
+
+        /*
+         * If requested size is the same as target block's 
+         * No need to reallocate, just return given address.
+         */
+        if( size == block_size )
+        {
+            u_addr = addr;
+            return u_addr;
         }
-        
 
+        u_addr = u_malloc(heap_id, size);
 
+        /* Not enough space for reallocation */
+        if( NULL != u_addr )
+        {
+            /* is new allocated area greater or smaller than previous? */
+            if( size > block_size )
+            {
+                memcpy(u_addr, addr, block_size);
+                u_free(addr);
+            }
+            else
+            {
+                memcpy(u_addr, addr, size);
+                u_free(addr);
+            }
+        }
     }
-
-    return u_block_addr;
+    return u_addr;
 }

@@ -55,7 +55,7 @@ typedef struct u_heap_link_t
 }u_heap_link_t;
 
 extern u_heap_id_t u_create(void *heap_addr, size_t heap_size);
-extern void*       u_malloc(u_heap_id_t heap_id, size_t req_size);
+extern void*       u_malloc(u_heap_id_t heap_id, size_t size);
 extern void        u_free(void *addr);
-extern void*       u_calloc(u_heap_id_t heap_id, size_t n_elems, size_t elem_size);
-extern void*       u_realloc(void *addr, size_t req_size);
+extern void*       u_calloc(u_heap_id_t heap_id, size_t n, size_t size);
+extern void*       u_realloc(void *addr, size_t size);

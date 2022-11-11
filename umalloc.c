@@ -356,14 +356,16 @@ void* u_calloc(u_heap_id_t heap_id, size_t n, size_t size)
 /**
  * @brief   Reallocates given address memory to a different size.
  *          If there is no sufficient space on the heap for specified
- *          size u_realloc will return a NULL pointer. 
+ *          size u_realloc will return a NULL pointer. There is no con-
+ *          -traction nor expansion of a memory region, instead u_realloc
+ *          looks in the free block list the requested memory size and if
+ *          successful it will copy the information from the given address
+ *          to the newly allocated one, free the given address and then 
+ *          return a pointer to the memory region.
  *          
- *          If realloc succeeds, it will return a pointer to a new memory 
- *          region with the contents of the previous address. If the requested 
- *          size is smaller than the given block information will be truncated
- *          during copy. Otherwise the information will be fully copied from 
- *          the previous memory region to another.
- *        
+ *          If the requested size is smaller than the given block information 
+ *          will be truncated during copy. Otherwise the information will be 
+ *          fully copied.
  * 
  * @param addr Address of the memory region to be reallocated.
  * @param size Requested size of new memory region.
@@ -396,7 +398,7 @@ void* u_realloc(void *addr, size_t size)
         heap_id = u_unpack_heap_id(u_block->u_block_size);
         block_size =  ( u_block->u_block_size & ~(u_allocation_bit | u_heap_id_mask) );
 
-        /* Align address before allocating */
+        /* Align requested size before allocating */
         if( 0 != ( size & UMALLOC_BYTE_ALIGN_MASK ) )
         {
             size += ( UMALLOC_BYTE_ALIGNMENT - ( size & UMALLOC_BYTE_ALIGN_MASK ) );
@@ -414,7 +416,7 @@ void* u_realloc(void *addr, size_t size)
 
         u_addr = u_malloc(heap_id, size);
 
-        /* Not enough space for reallocation */
+        /* Was allocation successful? */
         if( NULL != u_addr )
         {
             /* is new allocated area greater or smaller than previous? */

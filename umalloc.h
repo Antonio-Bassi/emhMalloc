@@ -25,6 +25,9 @@
  * 
  */
 
+#ifndef UMALLOC_H
+#define UMALLOC_H
+
 #define UMALLOC_HEAP_ID_BITMASK 0x7F
 #define UMALLOC_BITS_PER_BYTE   8
 #define UMALLOC_MAX_HEAPS       127
@@ -59,3 +62,5 @@ extern void*       u_malloc(u_heap_id_t heap_id, size_t size);
 extern void        u_free(void *addr);
 extern void*       u_calloc(u_heap_id_t heap_id, size_t n, size_t size);
 extern void*       u_realloc(void *addr, size_t size);
+
+#endif /* UMALLOC_H */

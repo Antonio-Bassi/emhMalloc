@@ -30,7 +30,10 @@
  * @copyright Copyright (c) 2022
  * 
  */
- 
+
+#ifndef UALIGN_H
+#define UALIGN_H
+
 #define UMALLOC_BYTE_ALIGNMENT 4
 
 #if UMALLOC_BYTE_ALIGNMENT == 32
@@ -60,3 +63,5 @@
 #ifndef UMALLOC_BYTE_ALIGNMENT
 #error "Invalid alignment boundary or no alignment boundary defined!"
 #endif
+
+#endif /* UALIGN_H */

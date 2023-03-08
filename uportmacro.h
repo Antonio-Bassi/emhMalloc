@@ -30,21 +30,32 @@
  * 
  */
 
+#ifndef UPORTMACRO_H
+#define UPORTMACRO_H
+
+
 /*
  * This macros are user defined and strictly necessary 
  * in order to create the critical section (or critical 
  * zone if you will) thus protecting u_malloc in a multi-
  * -thread environment.
  */
-
+#ifndef __u_create_zone__
 #define __u_create_zone__(){    \
 	(void*) NULL;	            \
 }
+#endif /* __u_create_zone__ */
 
+#ifndef __u_lock_zone__
 #define __u_lock_zone__(){   \
     (void*) NULL;            \
 }                               
+#endif /* __u_lock_zone__ */
 
+#ifndef __u_unlock_zone__
 #define __u_unlock_zone__(){ \
     (void*) NULL;            \
 }
+#endif /* __u_unlock_zone__ */ 
+
+#endif /* UPORTMACRO_H */

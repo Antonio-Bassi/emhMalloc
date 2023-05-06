@@ -1,8 +1,14 @@
-# umalloc
-A multi-heap memory allocator based on FreeRTOS Kernel [**heap 4**](https://github.com/sifive/FreeRTOS-metal/blob/master/FreeRTOS-Kernel/portable/MemMang/heap_4.c) memory management algorithm. The prefix \"u\" is used to mimic the __mu__ letter from the greek alphabet, which in power of 10 notation is denoted as \"micro\" and thus making reference to  **micro**controllers. The main idea of umalloc or (**micro**malloc if you will) is to manage multiple heap regions in a multi-threaded (or single threaded) environment without coallescing them. This is interesting to keep track of the memory organization throughout the embedded system project and to create isolated memory allocations for important tasks. This way we guarantee that the given memory regions will not be tampered by other ongoing tasks.
+# emh_malloc
+A multi-heap memory allocator for embedded systems based on FreeRTOS Kernel [**heap 4**](https://github.com/sifive/FreeRTOS-metal/blob/master/FreeRTOS-Kernel/portable/MemMang/heap_4.c) memory management algorithm. The prefix \"emh\" stands for Embedded Multi-Heap. The main proposition of emh_malloc is to manage multiple heap regions in a multi-threaded (or single threaded) environment without coalescing them. This is interesting to keep track of the memory organization throughout an embedded system project and to create isolated memory allocations for each important tasks. This way we guarantee that the given memory regions will not be tampered by other ongoing tasks.
 
 ## What's new?
-u_realloc and u_calloc are now implemented and ready to use. A documentation is due to be written.
+Project was renamed to a more appropriate name.
 
-## How to use umalloc
+## How does emh_malloc work?
+coming soon...
+
+## Integrating emh_malloc to your project
+coming soon...
+
+## How to use emh_malloc
 coming soon...

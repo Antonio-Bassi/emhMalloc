@@ -1,5 +1,5 @@
 /**
- *  u_malloc
+ *  emh_malloc
  *  Copyright (C) 2022, Antonio Vitor Grossi Bassi
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -15,10 +15,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * @file    umalloc.c
+ * @file    emh_malloc.c
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   umalloc source code.
- * @version alpha
+ * @version 1.6
  * @date    2022-10-11
  *
  * @copyright Copyright (c) 2022
@@ -31,133 +31,132 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "ualign.h"
-#include "umalloc.h"
-#include "uportmacro.h"
+#include "emh_align.h"
+#include "emh_malloc.h"
+#include "emh_port.h"
 
-static const size_t u_block_link_size = ( ( sizeof(u_block_link_t) + (size_t)( UMALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) UMALLOC_BYTE_ALIGN_MASK );
+static const size_t emh_blockLinkSize = ( ( sizeof(emh_blockLink_t) + (size_t)( EMH_MALLOC_BYTE_ALIGNMENT - 1 ) ) ) & ~( ( size_t ) EMH_MALLOC_BYTE_ALIGN_MASK );
 
-static u_heap_link_t u_static_links[UMALLOC_N_HEAPS] = {0};
+static emh_heapLink_t emh_heapLinks[EMH_MALLOC_N_HEAPS] = {0};
 
-static size_t u_allocation_bit = ( (size_t) 1 ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 16 );
-static size_t u_heap_id_mask   = ( (size_t) UMALLOC_HEAP_ID_BITMASK ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 );
+static size_t emh_allocBit  = ( (size_t) 1 ) << ( ( sizeof( size_t ) * EMH_MALLOC_BITS_PER_BYTE ) - 16 );
+static size_t emh_heapIdMsk = ( (size_t) EMH_MALLOC_HEAP_ID_BITMASK ) << ( ( sizeof( size_t ) * EMH_MALLOC_BITS_PER_BYTE ) - 15 );
 
-#define UMALLOC_MIN_BLOCK_SIZE  ( ( size_t )( u_block_link_size << 1 ) )
+#define EMH_MALLOC_MIN_BLOCK_SIZE  ( ( size_t )( emh_blockLinkSize << 1 ) )
 
-#ifndef __u_create_zone__
-#error "Error: Initialisation of critical zone mutex was not defined!"
-#endif /* __u_lock_zone__ */
+#ifndef __emh_create_zone__
+#error "emh_malloc: ERROR -> No semaphore or mutex initialisation function was defined. Check emh_malloc/emh_port.h"
+#endif /* __emh_create_zone__ */
 
-#ifndef __u_lock_zone__
-#error "Error: Start of critical zone was not defined!"
-#endif /* __u_lock_zone__ */
+#ifndef __emh_lock_zone__
+#error  "emh_malloc: ERROR -> No semaphore or mutex locking function was defined. Check emh_malloc/emh_port.h"
+#endif /* __emh_lock_zone__ */
 
-#ifndef __u_unlock_zone__
-#error "Error: End of critical zone was not defined!"
-#endif /* __u_unlock_zone__ */
+#ifndef __emh_unlock_zone__
+#error "emh_malloc: ERROR -> No semaphore or mutex realeasing function was defined. emh_malloc/emh_port.h"
+#endif /* __emh_unlock_zone__ */
 
 /**
  * @brief Packs heap id information by casting it into a size_t and shifting bits
  *        to the appropriate region.
- * @param heap_id heap id to be packed into a size_t variable.
+ * @param heapId heap id to be packed into a size_t variable.
  * @return size_t 
  */
-static size_t u_pack_heap_id(u_heap_id_t heap_id)
+static size_t emh_packHeapId(emh_heapId_t heapId)
 {
-    return ( ( size_t )( heap_id & UMALLOC_HEAP_ID_BITMASK ) ) << ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 );
+    return ( ( size_t )( heapId & EMH_MALLOC_HEAP_ID_BITMASK ) ) << ( ( sizeof( size_t ) * EMH_MALLOC_BITS_PER_BYTE ) - 15 );
 }
 
 /**
  * @brief Unpacks heap id information from a size_t variable. By shifting it back to the original
- *        position and casting it to a u_heap_id_t
- * @param u_block_size 
- * @return u_heap_id_t 
+ *        position and casting it to a emh_heapId_t
+ * @param emh_blockSize 
+ * @return emh_heapId_t 
  */
-static u_heap_id_t u_unpack_heap_id(size_t u_block_size)
+static emh_heapId_t emh_unpackHeapId(size_t emh_blockSize)
 {
-    return ( u_heap_id_t )( ( ( u_block_size ) >> ( ( sizeof( size_t ) * UMALLOC_BITS_PER_BYTE ) - 15 ) ) & ( UMALLOC_HEAP_ID_BITMASK ) );
+    return ( emh_heapId_t )( ( ( emh_blockSize ) >> ( ( sizeof( size_t ) * EMH_MALLOC_BITS_PER_BYTE ) - 15 ) ) & ( EMH_MALLOC_HEAP_ID_BITMASK ) );
 }
 
 /**
- * @brief Performs memory coallescing by linking a free block to the rest of the heap.
- * @param u_link    Pointer to heap static link.
- * @param u_block   Pointer of a free block to be linked.
+ * @brief Performs memory block coalescing by linking a free block to the rest of the heap.
+ * @param emh_heap  Pointer to a heap link.
+ * @param emh_block Pointer of a free block to be linked.
  */
-static void u_link_free_block(u_heap_link_t* u_link, u_block_link_t* u_block)
+static void emh_linkFreeBlock(emh_heapLink_t *emh_heap, emh_blockLink_t *emh_block)
 {
-    u_block_link_t* u_iterator;
-    uint8_t* u_addr;
+    emh_blockLink_t *iterator;
+    uint8_t *addr;
 
     /*
      * Iterate through the links until an address higher than the one of the 
      * given block is found. 
      */
-    for(u_iterator = &u_link->u_start; u_iterator->u_next_free < u_block; u_iterator = u_iterator->u_next_free );
+    for(iterator = &emh_heap->start; iterator->nextFree < emh_block; iterator = iterator->nextFree );
 
     /* Is the block being linked and the block linked after contiguous? */
-    u_addr = (uint8_t *) u_iterator;
-    if( ( u_addr + u_iterator->u_block_size ) == ( ( uint8_t*) u_block ) )
+    addr = (uint8_t *) iterator;
+    if( ( addr + iterator->blockSize ) == ( ( uint8_t*) emh_block ) )
     {
-        u_iterator->u_block_size += u_block->u_block_size;
-        u_block = u_iterator;
+        iterator->blockSize += emh_block->blockSize;
+        emh_block = iterator;
     }
     
     /* Is the block being linked and the one linked before contiguous? */
-    u_addr = (uint8_t *) u_block;
-    if( ( u_addr + u_block->u_block_size ) == ( ( uint8_t* ) u_iterator->u_next_free ) )
+    addr = (uint8_t *) emh_block;
+    if( ( addr + emh_block->blockSize ) == ( ( uint8_t* ) iterator->nextFree ) )
     {
-        /* Are we at the end of the heap links? */
-        if( u_link->u_end == u_iterator->u_next_free )
+        /* Are we at the end of the heap? */
+        if( emh_heap->end == iterator->nextFree )
         {
-            u_block->u_next_free = u_link->u_end;
+            emh_block->nextFree = emh_heap->end;
         }
         else
         {
-            u_block->u_block_size += u_iterator->u_next_free->u_block_size;
-            u_block->u_next_free = u_iterator->u_next_free->u_next_free;
+            emh_block->blockSize += iterator->nextFree->blockSize;
+            emh_block->nextFree  = iterator->nextFree->nextFree;
         }
     }
     else
     {
-        u_block->u_next_free = u_iterator->u_next_free;
+        emh_block->nextFree = iterator->nextFree;
     }
 
-    if( u_iterator != u_block )
+    if( iterator != emh_block )
     {
-        u_iterator->u_next_free = u_block;
+        iterator->nextFree = emh_block;
     }
-
     return;
 }
 
 /**
  * @brief Initialises heap space and links it into static links array.
- * @param heap_addr First memory address from the heap region.
- * @param heap_size Size of the heap memory region.
- * @return u_heap_id_t heap identifier, which is an index from u_static_links array.
+ * @param heapAddr First memory address from the heap region.
+ * @param heapSize Size of the heap memory region.
+ * @return emh_heapId_t heap identifier, which is an index from u_static_links array.
  */
-u_heap_id_t u_create(void* heap_addr, size_t heap_size)
+emh_heapId_t emh_create(void* heapAddr, size_t heapSize)
 {
-    static int      u_crit_zone_init = 0;
-    u_heap_id_t     u_heap_idx = 0;
-    u_heap_link_t   *u_first_free_link = u_static_links;
-    u_block_link_t  *u_first_free_block;
-    uint8_t         *u_aligned_addr;
-    size_t          u_addr;
-    size_t          u_total_heap_size = heap_size;
+    static int      emh_critZoneInit = 0;
+    emh_heapId_t    emh_heapIdx = 0;
+    emh_heapLink_t  *emh_stFreeLink = emh_heapLinks;
+    emh_blockLink_t *emh_stFreeBlock;
+    uint8_t         *alignedAddr;
+    size_t          unsLongAddr;
+    size_t          totHeapSize = heapSize;
 
     /* Initialises mutex */
-    if( 0 == u_crit_zone_init )
+    if( 0 == emh_critZoneInit )
     {
-    	__u_create_zone__();
-    	u_crit_zone_init = 1;
+    	__emh_create_zone__();
+    	emh_critZoneInit = 1;
     }
     
-    __u_lock_zone__();
+    __emh_lock_zone__();
     /* Search for available links */
-    for(u_heap_idx = 0; u_heap_idx < UMALLOC_N_HEAPS; u_heap_idx++)
+    for(emh_heapIdx = 0; emh_heapIdx < EMH_MALLOC_N_HEAPS; emh_heapIdx++)
     {
-        if( NULL == u_first_free_link[u_heap_idx].u_end )
+        if( NULL == emh_stFreeLink[emh_heapIdx].end )
         {
             break;   
         }
@@ -168,126 +167,125 @@ u_heap_id_t u_create(void* heap_addr, size_t heap_size)
      * This means the maximum number of manageable heaps was reached.
      * Therefore return an invalid heap id.
      */
-    if( u_heap_idx >= UMALLOC_N_HEAPS )
+    if( emh_heapIdx >= EMH_MALLOC_N_HEAPS )
     {
-        u_heap_idx = -1;
-        return u_heap_idx;
+        emh_heapIdx = -1;
+        return emh_heapIdx;
     }
 
     /*
      * The address must be aligned. 
      * Perform necessary corrections.
      */
-    
-    u_addr = (size_t)( heap_addr );
-    if( 0 != ( u_addr & UMALLOC_BYTE_ALIGN_MASK ) )
+    unsLongAddr = (size_t)( heapAddr );
+    if( 0 != ( unsLongAddr & EMH_MALLOC_BYTE_ALIGN_MASK ) )
     {
-        u_addr += (UMALLOC_BYTE_ALIGNMENT - 1);
-        u_addr &= ~( (size_t) UMALLOC_BYTE_ALIGN_MASK );
-        u_total_heap_size -= u_addr - ( (size_t) heap_addr ); 
+        unsLongAddr += (EMH_MALLOC_BYTE_ALIGNMENT - 1);
+        unsLongAddr &= ~( (size_t) EMH_MALLOC_BYTE_ALIGN_MASK );
+        totHeapSize -= unsLongAddr - ( (size_t) heapAddr ); 
     }
-    u_aligned_addr = (uint8_t*) u_addr;
+    alignedAddr = (uint8_t*) unsLongAddr;
 
-    u_first_free_link[u_heap_idx].u_start.u_next_free   = (void*) u_aligned_addr;
-    u_first_free_link[u_heap_idx].u_start.u_block_size  = (size_t) 0;
+    emh_stFreeLink[emh_heapIdx].start.nextFree   = (void*) alignedAddr;
+    emh_stFreeLink[emh_heapIdx].start.blockSize  = (size_t) 0;
 
-    u_addr = ( (size_t) u_aligned_addr ) + u_total_heap_size;
-    u_addr -= u_block_link_size;
-    u_addr &= ~( (size_t) UMALLOC_BYTE_ALIGN_MASK );
+    unsLongAddr = ( (size_t) alignedAddr ) + totHeapSize;
+    unsLongAddr -= emh_blockLinkSize;
+    unsLongAddr &= ~( (size_t) EMH_MALLOC_BYTE_ALIGN_MASK );
 
-    u_first_free_link[u_heap_idx].u_end = (void*) u_addr;
-    u_first_free_link[u_heap_idx].u_end->u_block_size = 0;
-    u_first_free_link[u_heap_idx].u_end->u_next_free = NULL;
+    emh_stFreeLink[emh_heapIdx].end = (void*) unsLongAddr;
+    emh_stFreeLink[emh_heapIdx].end->blockSize = 0;
+    emh_stFreeLink[emh_heapIdx].end->nextFree = NULL;
 
-    u_first_free_block                  = (void*) u_aligned_addr;
-    u_first_free_block->u_block_size    = u_addr - ( (size_t) u_first_free_block );
-    u_first_free_block->u_next_free     = u_first_free_link[u_heap_idx].u_end;
+    emh_stFreeBlock             = (void*) alignedAddr;
+    emh_stFreeBlock->blockSize  = unsLongAddr - ( (size_t) emh_stFreeBlock );
+    emh_stFreeBlock->nextFree   = emh_stFreeLink[emh_heapIdx].end;
 
-    u_first_free_link[u_heap_idx].u_free_bytes      = u_first_free_block->u_block_size;
-    u_first_free_link[u_heap_idx].u_remain_bytes    = u_first_free_block->u_block_size;
-    __u_unlock_zone__();
+    emh_stFreeLink[emh_heapIdx].freeBytes      = emh_stFreeBlock->blockSize;
+    emh_stFreeLink[emh_heapIdx].remainBytes    = emh_stFreeBlock->blockSize;
+    __emh_unlock_zone__();
 
-    return u_heap_idx;
+    return emh_heapIdx;
 }
 
 /**
- * @brief Allocates memory region into designated heap space specified by heap_id
+ * @brief Allocates memory region into designated heap space specified by heapId
  *        and returns a memory aligned pointer to allocated memory area.
  * 
- * @param heap_id Id number of the heap memory region to be used.
+ * @param heapId Id number of the heap memory region to be used.
  * @param size    Size of memory to be allocated from the heap.
  * @return void* 
  */
-void* u_malloc(u_heap_id_t heap_id, size_t size)
+void* emh_malloc(emh_heapId_t heapId, size_t size)
 {
-    __u_lock_zone__();
-    void* u_addr = NULL;
+    __emh_lock_zone__();
+    void* addr = NULL;
 
     /* Is heap ID not valid? */
-    if( ( 0 > heap_id ) || ( UMALLOC_MAX_HEAPS < heap_id ) )
+    if( ( 0 > heapId ) || ( EMH_MALLOC_MAX_HEAPS < heapId ) )
     {
-        return u_addr;
+        return addr;
     }
 
-    u_heap_link_t  *u_link = &u_static_links[heap_id];
-    u_block_link_t *u_block, *u_prev_block, *u_new_block;
+    emh_heapLink_t  *emh_link = &emh_heapLinks[heapId];
+    emh_blockLink_t *block, *prevBlock, *newBlock;
 
     /*
      * Check if the requested size is valid and can fit the
      * allocation control bit.
      */
-    if( ( 0 == ( size & u_allocation_bit ) ) && ( 0 < size ) )
+    if( ( 0 == ( size & emh_allocBit ) ) && ( 0 < size ) )
     {   
         /* Perform necessary corrections on requested size. */
-        size += u_block_link_size;
-        if( 0 != ( size & UMALLOC_BYTE_ALIGN_MASK ) )
+        size += emh_blockLinkSize;
+        if( 0 != ( size & EMH_MALLOC_BYTE_ALIGN_MASK ) )
         {
-            size += ( UMALLOC_BYTE_ALIGNMENT - ( size & UMALLOC_BYTE_ALIGN_MASK ) );
+            size += ( EMH_MALLOC_BYTE_ALIGNMENT - ( size & EMH_MALLOC_BYTE_ALIGN_MASK ) );
         }
 
         /* Is requested size possible to fit in ? */
-        if( size <= u_link->u_free_bytes )
+        if( size <= emh_link->freeBytes )
         {
-            u_prev_block    = &u_link->u_start;
-            u_block         = u_link->u_start.u_next_free;
+            prevBlock = &emh_link->start;
+            block     = emh_link->start.nextFree;
 
-            while( ( u_block->u_block_size < size ) && ( NULL != u_block->u_next_free ) )
+            while( ( block->blockSize < size ) && ( NULL != block->nextFree ) )
             {
-                u_prev_block    = u_block;
-                u_block         = u_block->u_next_free;
+                prevBlock    = block;
+                block        = block->nextFree;
             }
 
             /* Have we cycled through the entire list? */
-            if( u_link->u_end != u_block )
+            if( emh_link->end != block )
             {
                 /* If we are here it means a suitable block has been found. */
-                u_addr = ( void* )( ( ( uint8_t* ) u_prev_block->u_next_free ) + u_block_link_size );
-                u_prev_block->u_next_free = u_block->u_next_free;
+                addr = ( void* )( ( ( uint8_t* ) prevBlock->nextFree ) + emh_blockLinkSize );
+                prevBlock->nextFree = block->nextFree;
 
-                if(  UMALLOC_MIN_BLOCK_SIZE < ( u_block->u_block_size - size ) )
+                if(  EMH_MALLOC_MIN_BLOCK_SIZE < ( block->blockSize - size ) )
                 {
-                    u_new_block = ( void* )( ( ( uint8_t* ) u_block ) + size );
-                    u_new_block->u_block_size = u_block->u_block_size - size;
-                    u_block->u_block_size = size;
+                    newBlock = ( void* )( ( ( uint8_t* ) block ) + size );
+                    newBlock->blockSize = block->blockSize - size;
+                    block->blockSize = size;
 
                     /* Insert block into list of free links */
-                    u_link_free_block(u_link, u_new_block);
+                    emh_linkFreeBlock(emh_link, newBlock);
                 }
 
-                u_link->u_free_bytes -= u_block->u_block_size;
-                if ( u_link->u_free_bytes < u_link->u_remain_bytes )
+                emh_link->freeBytes -= block->blockSize;
+                if ( emh_link->freeBytes < emh_link->remainBytes )
                 {
-                    u_link->u_remain_bytes = u_link->u_free_bytes;
+                    emh_link->remainBytes = emh_link->freeBytes;
                 }
 
-                u_block->u_block_size |= u_allocation_bit;
-                u_block->u_block_size |= u_pack_heap_id(heap_id);
-                u_block->u_next_free = NULL;
+                block->blockSize |= emh_allocBit;
+                block->blockSize |= emh_packHeapId(heapId);
+                block->nextFree = NULL;
             }
         }
     }
-    __u_unlock_zone__();
-    return u_addr;
+    __emh_unlock_zone__();
+    return addr;
 }
 
 /**
@@ -295,29 +293,36 @@ void* u_malloc(u_heap_id_t heap_id, size_t size)
  * 
  * @param addr Address of the memory region to be freed.
  */
-void u_free(void* addr)
+void emh_free(void* addr)
 {
-    uint8_t *u_addr = (uint8_t *) addr;
-    u_block_link_t *u_block;
-    u_heap_id_t heap_id;
-    u_heap_link_t *u_link;
+    uint8_t *emh_addr = (uint8_t *) addr;
+    emh_blockLink_t *emh_block;
+    emh_heapId_t heapId;
+    emh_heapLink_t *emh_link;
 
     if( NULL != addr )
     {
-        u_addr -= u_block_link_size;
-        u_block = (void *) u_addr;
-        heap_id = u_unpack_heap_id(u_block->u_block_size);
+        emh_addr -= emh_blockLinkSize;
+        emh_block = (void *) emh_addr;
+        heapId = emh_unpackHeapId(emh_block->blockSize);
       
-        __u_lock_zone__();
-        if( ( 0 != ( u_block->u_block_size & u_allocation_bit ) ) &&
-            ( NULL == u_block->u_next_free ) )
+        __emh_lock_zone__();
+        /*
+         * [1.] Is the block allocated?
+         * [2.] Is the next block pointer NULL?
+         * [3.] Is the heapId valid? 
+         */
+        if( ( 0 != ( emh_block->blockSize & emh_allocBit ) ) &&
+            ( NULL == emh_block->nextFree ) &&
+            ( EMH_MALLOC_N_HEAPS > heapId) &&
+            ( 0 <= heapId ) )
         {
-            u_link = &u_static_links[heap_id];
-            u_block->u_block_size &= ~(u_allocation_bit | u_heap_id_mask);
-            u_link->u_free_bytes += u_block->u_block_size;
-            u_link_free_block(u_link, u_block);
+            emh_link = &emh_heapLinks[heapId];
+            emh_block->blockSize &= ~(emh_allocBit | emh_heapIdMsk);
+            emh_link->freeBytes += emh_block->blockSize;
+            emh_linkFreeBlock(emh_link, emh_block);
         }
-        __u_unlock_zone__();
+        __emh_unlock_zone__();
     }
     return;
 }
@@ -327,30 +332,30 @@ void u_free(void* addr)
  *          *size* and initializes all bytes in the allocated storage to 
  *          zero. 
  * 
- * @param heap_id   Id number of the heap memory region to be used.
+ * @param heapId   Id number of the heap memory region to be used.
  * @param n         Number of elements.
  * @param size      Individual element size.
  * @return void* 
  */
-void* u_calloc(u_heap_id_t heap_id, size_t n, size_t size)
+void* emh_calloc(emh_heapId_t heapId, size_t n, size_t size)
 {
-    void *u_addr = NULL;
-    size_t tot_size = (size_t)( n * size );
+    void *addr = NULL;
+    size_t totSize = (size_t)( n * size );
 
-    tot_size += u_block_link_size;
-    if( 0 != ( tot_size & UMALLOC_BYTE_ALIGN_MASK ) )
+    totSize += emh_blockLinkSize;
+    if( 0 != ( totSize & EMH_MALLOC_BYTE_ALIGN_MASK ) )
     {
-        tot_size += ( UMALLOC_BYTE_ALIGNMENT - ( tot_size & UMALLOC_BYTE_ALIGN_MASK ) );
+        totSize += ( EMH_MALLOC_BYTE_ALIGNMENT - ( totSize & EMH_MALLOC_BYTE_ALIGN_MASK ) );
     }
 
-    u_addr = u_malloc(heap_id, tot_size);
+    addr = emh_malloc(heapId, totSize);
 
-    if( NULL != u_addr )
+    if( NULL != addr )
     {
-        memset(u_addr, 0x00, tot_size);
+        memset(addr, 0x00, totSize);
     }
 
-    return u_addr;
+    return addr;
 }
 
 /**
@@ -371,13 +376,13 @@ void* u_calloc(u_heap_id_t heap_id, size_t n, size_t size)
  * @param size Requested size of new memory region.
  * @return void* 
  */
-void* u_realloc(void *addr, size_t size)
+void* emh_realloc(void *addr, size_t size)
 {
-    void *u_addr = NULL;
-    uint8_t *x_addr = (uint8_t *) addr;
-    size_t block_size = 0;
-    u_block_link_t *u_block;
-    u_heap_id_t heap_id;   
+    void *emh_addr = NULL;
+    uint8_t *byteAddr = (uint8_t *) addr;
+    size_t blockSize = 0;
+    emh_blockLink_t *block;
+    emh_heapId_t heapId;   
 
     /* Is given pointer valid? */
     if( NULL != addr )
@@ -388,49 +393,49 @@ void* u_realloc(void *addr, size_t size)
          */
         if( 0 == size )
         {
-            u_free(addr);
-            return u_addr;
+            emh_free(addr);
+            return emh_addr;
         }
 
         /* Extract heap block information */
-        x_addr -= u_block_link_size;
-        u_block = (void *) x_addr;
-        heap_id = u_unpack_heap_id(u_block->u_block_size);
-        block_size =  ( u_block->u_block_size & ~(u_allocation_bit | u_heap_id_mask) );
+        byteAddr -= emh_blockLinkSize;
+        block = (void *) byteAddr;
+        heapId = emh_unpackHeapId(block->blockSize);
+        blockSize =  ( block->blockSize & ~(emh_allocBit | emh_heapIdMsk) );
 
         /* Align requested size before allocating */
-        if( 0 != ( size & UMALLOC_BYTE_ALIGN_MASK ) )
+        if( 0 != ( size & EMH_MALLOC_BYTE_ALIGN_MASK ) )
         {
-            size += ( UMALLOC_BYTE_ALIGNMENT - ( size & UMALLOC_BYTE_ALIGN_MASK ) );
+            size += ( EMH_MALLOC_BYTE_ALIGNMENT - ( size & EMH_MALLOC_BYTE_ALIGN_MASK ) );
         }           
 
         /*
          * If requested size is the same as target block's 
          * No need to reallocate, just return given address.
          */
-        if( size == block_size )
+        if( size == blockSize )
         {
-            u_addr = addr;
-            return u_addr;
+            emh_addr = addr;
+            return emh_addr;
         }
 
-        u_addr = u_malloc(heap_id, size);
+        emh_addr = emh_malloc(heapId, size);
 
         /* Was allocation successful? */
-        if( NULL != u_addr )
+        if( NULL != emh_addr )
         {
             /* is new allocated area greater or smaller than previous? */
-            if( size > block_size )
+            if( size > blockSize )
             {
-                memcpy(u_addr, addr, block_size);
-                u_free(addr);
+                memcpy(emh_addr, addr, blockSize);
+                emh_free(addr);
             }
             else
             {
-                memcpy(u_addr, addr, size);
-                u_free(addr);
+                memcpy(emh_addr, addr, size);
+                emh_free(addr);
             }
         }
     }
-    return u_addr;
+    return emh_addr;
 }

@@ -1,5 +1,5 @@
 /**
- *  u_malloc
+ *  emh_malloc
  *  Copyright (C) 2022, Antonio Vitor Grossi Bassi
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -15,23 +15,23 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * 
- * @file    uportmacro.h
- * @author  Antonio Vitor Grossi Bassi
+ * @file    emh_port.h
+ * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   Port environment header file.
  *          This file is dedicated for the user to port u_malloc to
  *          their application. You may add necessary header files and
  *          definitions and must define the critical section function
  *          macros.
  * 
- * @version 0.1
+ * @version 1.6
  * @date    2022-10-12
  * 
  * @copyright Copyright (c) 2022
  * 
  */
 
-#ifndef UPORTMACRO_H
-#define UPORTMACRO_H
+#ifndef EMH_PORT_H
+#define EMH_PORT_H
 
 
 /*
@@ -40,25 +40,22 @@
  * the critical section (or critical zone if you will) 
  * thus protecting u_malloc from concurrent accesses.
  */
-#ifndef __u_create_zone__
-#warning "No semaphore or mutex initialisation function was defined. Check umalloc/uportmacro.h"
-#define __u_create_zone__(){    \
+#ifndef __emh_create_zone__
+#define __emh_create_zone__(){    \
 	(void*) NULL;	            \
 }
-#endif /* __u_create_zone__ */
+#endif /* __emh_create_zone__ */
 
-#ifndef __u_lock_zone__
-#warning "No semaphore or mutex locking function was defined. Check umalloc/uportmacro.h"
-#define __u_lock_zone__(){   \
+#ifndef __emh_lock_zone__
+#define __emh_lock_zone__(){   \
     (void*) NULL;            \
 }                               
-#endif /* __u_lock_zone__ */
+#endif /* __emh_lock_zone__ */
 
-#ifndef __u_unlock_zone__
-#warning "No semaphore or mutex realeasing function was defined. Check umalloc/uportmacro.h"
-#define __u_unlock_zone__(){ \
+#ifndef __emh_unlock_zone__
+#define __emh_unlock_zone__(){ \
     (void*) NULL;            \
 }
-#endif /* __u_unlock_zone__ */ 
+#endif /* __emh_unlock_zone__ */ 
 
-#endif /* UPORTMACRO_H */
+#endif /* EMH_PORT_H */

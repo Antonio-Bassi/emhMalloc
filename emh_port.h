@@ -18,7 +18,7 @@
  * @file    emh_port.h
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * @brief   Port environment header file.
- *          This file is dedicated for the user to port u_malloc to
+ *          This file is dedicated for the user to port emh_malloc to
  *          their application. You may add necessary header files and
  *          definitions and must define the critical section function
  *          macros.
@@ -33,28 +33,30 @@
 #ifndef EMH_PORT_H
 #define EMH_PORT_H
 
+/* This header file must be provided by the user! */
+#include <emh_portenv.h>
 
 /*
  * This macros are user defined and strictly necessary 
  * for multi-threaded environment in order to create 
  * the critical section (or critical zone if you will) 
- * thus protecting u_malloc from concurrent accesses.
+ * thus protecting emh_malloc from concurrent accesses.
  */
 #ifndef __emh_create_zone__
-#define __emh_create_zone__(){    \
-	(void*) NULL;	            \
+#define __emh_create_zone__(){  \
+	(void*) NULL;	                \
 }
 #endif /* __emh_create_zone__ */
 
 #ifndef __emh_lock_zone__
-#define __emh_lock_zone__(){   \
-    (void*) NULL;            \
+#define __emh_lock_zone__(){  \
+  (void*) NULL;               \
 }                               
 #endif /* __emh_lock_zone__ */
 
 #ifndef __emh_unlock_zone__
 #define __emh_unlock_zone__(){ \
-    (void*) NULL;            \
+  (void*) NULL;                \
 }
 #endif /* __emh_unlock_zone__ */ 
 

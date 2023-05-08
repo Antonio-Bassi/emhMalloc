@@ -34,7 +34,8 @@
 #ifndef EMH_ALIGN_H
 #define EMH_ALIGN_H
 
-#define EMH_MALLOC_BYTE_ALIGNMENT 8
+/* This header file must be provided by the user! */
+#include <emh_portenv.h>
 
 #if !defined(EMH_MALLOC_BYTE_ALIGNMENT)
 #error "emh_malloc: ERROR -> No memory alignment was specified! Check emh_malloc/emh_align.h"

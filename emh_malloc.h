@@ -17,7 +17,7 @@
  * 
  * @file    emh_malloc.h
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
- * @brief   umalloc core function set.
+ * @brief   emh_malloc core function set.
  * @version 1.6
  * @date    2022-10-11
  * 
@@ -39,7 +39,7 @@
 #undef  EMH_MALLOC_N_HEAPS
 #define EMH_MALLOC_N_HEAPS 2
 #warning "emh_malloc: EMH_MALLOC_N_HEAPS exceeds the limit, macro redefined to 2"
-#endif /* !defined(UMALLOC_N_HEAPS) */
+#endif /* !defined(EMH_MALLOC_N_HEAPS) */
 
 typedef signed char emh_heapId_t;
 

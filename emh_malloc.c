@@ -17,7 +17,7 @@
  * 
  * @file    emh_malloc.c
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
- * @brief   umalloc source code.
+ * @brief   emh_malloc source code.
  * @version 1.6
  * @date    2022-10-11
  *
@@ -133,7 +133,7 @@ static void emh_linkFreeBlock(emh_heapLink_t *emh_heap, emh_blockLink_t *emh_blo
  * @brief Initialises heap space and links it into static links array.
  * @param heapAddr First memory address from the heap region.
  * @param heapSize Size of the heap memory region.
- * @return emh_heapId_t heap identifier, which is an index from u_static_links array.
+ * @return emh_heapId_t heap identifier, which is an index from emh_heapLinks array.
  */
 emh_heapId_t emh_create(void* heapAddr, size_t heapSize)
 {
@@ -361,8 +361,8 @@ void* emh_calloc(emh_heapId_t heapId, size_t n, size_t size)
 /**
  * @brief   Reallocates given address memory to a different size.
  *          If there is no sufficient space on the heap for specified
- *          size u_realloc will return a NULL pointer. There is no con-
- *          -traction nor expansion of a memory region, instead u_realloc
+ *          size emh_realloc will return a NULL pointer. There is no con-
+ *          -traction nor expansion of a memory region, instead emh_realloc
  *          looks in the free block list the requested memory size and if
  *          successful it will copy the information from the given address
  *          to the newly allocated one, free the given address and then 

@@ -18,8 +18,8 @@
  * @file    emh_align.h
  * @author  Antonio Vitor Grossi Bassi (antoniovitor.gb@gmail.com)
  * 
- * @brief   Contains memory alignment directive macros used on umalloc code. In order 
- *          to align the heap segment, a correction is made at ucreate() function. The 
+ * @brief   Contains memory alignment directive macros used on emh_malloc code. In order 
+ *          to align the heap segment, a correction is made at emh_create() function. The 
  *          macros below define the type of alignment to be used. This parameters are 
  *          architecture specific and should be chosen with care. A proper alignment 
  *          can result in time improvements during memory accessing.

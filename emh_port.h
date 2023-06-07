@@ -47,11 +47,11 @@
 #endif /* __emh_create_zone__ */
 
 #ifndef __emh_lock_zone__
-#error  emh_malloc: ERROR! No semaphore or mutex locking function was defined. Check emh_malloc/emh_port.h                           
+#error emh_malloc: ERROR! No semaphore or mutex locking function was defined. Check emh_malloc/emh_port.h                           
 #endif /* __emh_lock_zone__ */
 
 #ifndef __emh_unlock_zone__
-#error "emh_malloc: ERROR! No semaphore or mutex realeasing function was defined. Check emh_malloc/emh_port.h"
+#error emh_malloc: ERROR! No semaphore or mutex realeasing function was defined. Check emh_malloc/emh_port.h
 #endif /* __emh_unlock_zone__ */ 
 
 #endif /* EMH_PORT_H */

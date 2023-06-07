@@ -43,21 +43,15 @@
  * thus protecting emh_malloc from concurrent accesses.
  */
 #ifndef __emh_create_zone__
-#define __emh_create_zone__(){  \
-	(void*) NULL;	                \
-}
+#error emh_malloc: ERROR! No semaphore or mutex initialisation function was defined. Check emh_malloc/emh_port.h
 #endif /* __emh_create_zone__ */
 
 #ifndef __emh_lock_zone__
-#define __emh_lock_zone__(){  \
-  (void*) NULL;               \
-}                               
+#error  emh_malloc: ERROR! No semaphore or mutex locking function was defined. Check emh_malloc/emh_port.h                           
 #endif /* __emh_lock_zone__ */
 
 #ifndef __emh_unlock_zone__
-#define __emh_unlock_zone__(){ \
-  (void*) NULL;                \
-}
+#error "emh_malloc: ERROR! No semaphore or mutex realeasing function was defined. Check emh_malloc/emh_port.h"
 #endif /* __emh_unlock_zone__ */ 
 
 #endif /* EMH_PORT_H */

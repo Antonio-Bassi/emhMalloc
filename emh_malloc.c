@@ -45,18 +45,6 @@ static size_t emh_heapIdMsk = ( (size_t) EMH_MALLOC_HEAP_ID_BITMASK ) << ( ( siz
 
 #define EMH_MALLOC_MIN_BLOCK_SIZE  ( ( size_t )( emh_blockLinkSize << 1 ) )
 
-#ifndef __emh_create_zone__
-#error "emh_malloc: ERROR -> No semaphore or mutex initialisation function was defined. Check emh_malloc/emh_port.h"
-#endif /* __emh_create_zone__ */
-
-#ifndef __emh_lock_zone__
-#error  "emh_malloc: ERROR -> No semaphore or mutex locking function was defined. Check emh_malloc/emh_port.h"
-#endif /* __emh_lock_zone__ */
-
-#ifndef __emh_unlock_zone__
-#error "emh_malloc: ERROR -> No semaphore or mutex realeasing function was defined. emh_malloc/emh_port.h"
-#endif /* __emh_unlock_zone__ */
-
 /**
  * @brief Packs heap id information by casting it into a size_t and shifting bits
  *        to the appropriate region.

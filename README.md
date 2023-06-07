@@ -15,20 +15,18 @@ Before memory blocks can be allocated, the heap region must be specified and the
   <img align="center" height="285" width="601" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/how_emh_works.jpg">
   <figcaption>Figure 1 - emh_malloc memory block and heap organization.</figcaption>
 </figure>
-<br></br>
 
 At first, our memory region is considered empty, i.e no allocated blocks whatsoever. Therefore the heap starts with a single **free** memory block pointed by **\*next** in the **start** block link struct, present in the heap link data structure. When `emh_malloc` is called, the allocation size and heap ID number must be passed as arguments. During the allocation process, `emh_malloc` performs memory alignment procedures on the requested allocation size and then traverse the entire free block list to find a block in the specified heap that will fit the requested size. If successful, the list of free blocks is updated and a pointer to the allocated block is returned, otherwise a `NULL` pointer is returned. Everytime `emh_malloc` successfully allocates a block, the respective block is unlinked from the **free** block list. Observe the illustrations below.
 
 <figure>
   <img align="center" height="320" width="923" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step1.jpg">
-  <figcaption>Figure 2 - Initial heap state of a 2 KiB (2048 bytes) heap memory region.</figcaption>
+  <figcaption>Figure 2 - Initial state of a 2 KiB (2048 bytes) heap memory region.</figcaption>
 </figure>
-<br></br>
+
 <figure>
   <img align="center" height="320" width="923" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step2.jpg">
   <figcaption>Figure 3 - Heap state after a memory allocation procedure.</figcaption>
 </figure>
-<br></br>
 
 When we are done with our dynamic allocation needs, a call to `emh_free` may be placed. Only the block pointer needs to be provided as an argument since the heap ID number is packed within the block size field and extracted with a bit mask. After freeing the block, the newly available space is now linked to the free block list, if the **freed** memory block is contiguous in memory with another **free** block then it is agglutinated into a single free block. 
 

@@ -19,12 +19,12 @@ Before memory blocks can be allocated, the heap region must be specified and the
 At first, our memory region is considered empty, i.e no allocated blocks whatsoever. Therefore the heap starts with a single **free** memory block pointed by **\*next** in the **start** block link struct, present in the heap link data structure. When `emh_malloc` is called, the allocation size and heap ID number must be passed as arguments. During the allocation process, `emh_malloc` performs memory alignment procedures on the requested allocation size and then traverse the entire free block list to find a block in the specified heap that will fit the requested size. If successful, the list of free blocks is updated and a pointer to the allocated block is returned, otherwise a `NULL` pointer is returned. Everytime `emh_malloc` successfully allocates a block, the respective block is unlinked from the **free** block list. Observe the illustrations below.
 
 <figure>
-  <img align="center" height="320" width="923" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step1.jpg">
+  <img align="center" height="482" width="804" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step1.jpg">
   <figcaption>Figure 2 - Initial state of a 2 KiB (2048 bytes) heap memory region.</figcaption>
 </figure>
 
 <figure>
-  <img align="center" height="320" width="923" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step2.jpg">
+  <img align="center" height="482" width="804" src="https://github.com/Antonio-Bassi/emh_malloc/blob/main/mkdown_pics/emh_malloc_step2.jpg">
   <figcaption>Figure 3 - Heap state after a memory allocation procedure.</figcaption>
 </figure>
 

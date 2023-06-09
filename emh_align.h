@@ -38,11 +38,11 @@
 #include <emh_portenv.h>
 
 #if !defined(EMH_MALLOC_BYTE_ALIGNMENT)
-#error "emh_malloc: ERROR -> No memory alignment was specified! Check emh_malloc/emh_align.h"
+#error emh_malloc: No memory alignment was specified! Check emh_malloc/emh_align.h
 #endif /* EMH_MALLOC_BYTE_ALIGNMENT */
 
 #if ((EMH_MALLOC_BYTE_ALIGNMENT > 32) | (EMH_MALLOC_BYTE_ALIGNMENT < 1))
-#error "emh_malloc: ERROR -> An invalid memory alignment directive was specified! Check emh_malloc/emh_align.h"
+#error emh_malloc: An invalid memory alignment directive was specified! Check emh_malloc/emh_align.h
 #endif
 
 /* 256-bits alignment */

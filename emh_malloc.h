@@ -28,10 +28,11 @@
 #ifndef EMH_MALLOC_H
 #define EMH_MALLOC_H
 
+#include <emh_portenv.h>
+
 #define EMH_MALLOC_HEAP_ID_BITMASK 0x7F
 #define EMH_MALLOC_BITS_PER_BYTE   8
 #define EMH_MALLOC_MAX_HEAPS       127
-#define EMH_MALLOC_N_HEAPS         4
 
 #if !defined(EMH_MALLOC_N_HEAPS)
 #define EMH_MALLOC_N_HEAPS 2

@@ -2,7 +2,7 @@
 A memory allocator designed for embedded systems. The prefix \"emh\" stands for Embedded Multi-Heap. The main proposition of emh_malloc is to manage multiple heap regions in a multi-threaded (or single threaded) environment without coalescing them. This is interesting to keep track of the memory organization throughout an embedded system project and to create isolated memory allocations for each important tasks. This way we guarantee that the given memory regions will not be tampered by other ongoing tasks.
 
 ## What's new?
-Project was renamed to a more appropriate name.
+First version of the documentation is finished.
 
 ## How does emh_malloc work?
 Since our memory allocator performs operations on multiple heaps that are kept apart from each other, an identification means must be provided for each heap region and also for the allocated units within each region. For that we define 2 different objects:
@@ -32,7 +32,7 @@ Other allocation API such as `emh_calloc` and `emh_realloc` are also available. 
 ## Integrating emh_malloc to your project
 If `emh_malloc` operates in a multi-threaded environment, concurrent access to memory allocation is a problem we want to avoid. For that a mutual exclusion semaphore (mutex) must be provided, the function macros `__emh_create_zone__`, `__emh_lock_zone__` and `__emh_unlock_zone__` provide a hook to the mutex creation, locking and release functions. We must define the memory alignment options as well by defining the macro `EMH_MALLOC_BYTE_ALIGNMENT` with any of the options available on the file **emh_align.h**. Finally, the number of heaps managed by `emh_malloc` can be specified by defining `EMH_MALLOC_N_HEAPS`.
 
-All the definitions listed above should be placed in a header file named **emh_portenv.h** that must be provided by the user. Below is an example of how to integrate `emh_malloc` to `FreeRTOS`.
+All the definitions listed above should be placed in a header file named **emh_portenv.h** that **must be provided by the user**. Below is an example of how to integrate `emh_malloc` to `FreeRTOS`.
 
 ```C
 #include "FreeRTOS.h"
@@ -59,7 +59,7 @@ extern SemaphoreHandle_t emh_malloc_mtx;
 }                                 \
 ```
 
-If we are operating in a single threaded environment, you may define as below.
+If we are operating in a single-thread environment, you may define as below.
 
 ```C
 #define EMH_MALLOC_N_HEAPS        4
@@ -92,4 +92,4 @@ extern void*        emh_calloc(emh_heapId_t heapId, size_t n, size_t size);
 extern void*        emh_realloc(void *addr, size_t size);
 ```
 
-The `emh_create` function must be called to initialise your heap and adding it to the list of heap links. The return value `emh_heapId_t` is the identification number of the heap. You must store this value in a variable in order to perform allocations with `emh_malloc`, as this value identifies from which heap we wish to allocate. 
+The `emh_create` function must be called to initialise your heap and adding it to the list of heap links. The return value `emh_heapId_t` is the identification number of the heap. **You must store this value in a variable** in order to perform allocations with `emh_malloc`, as this value identifies from which heap we wish to allocate.
